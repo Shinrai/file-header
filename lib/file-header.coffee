@@ -4,7 +4,7 @@
 # @Project: file-header
 # @Filename: lib/file-header.coffee
 # @Last modified by:   Nate Hyson <CLDMV> (nate@cldmv.net)
-# @Last modified time: 2019-09-04T18:38:27-07:00
+# @Last modified time: 2019-09-05T10:02:33-07:00
 
 
 
@@ -139,7 +139,10 @@ module.exports = FileHeader =
       @state.notFirstTime = true
       # if it is the first time this plugin is installed, we try to setup username
       # for the user
-      atom.config.set('file-header.username', process.env.USER ? '')
+      username = atom.config.get 'file-header.username'
+      # Lets see if a value is set. For some reason the state is being cleared. Usually happening after a restart of the OS.
+      if !username or username == ''
+        atom.config.set('file-header.username', process.env.USER ? '')
 
     # Events subscribed to in atom's system can be easily cleaned up
     # with a CompositeDisposable
@@ -311,13 +314,12 @@ module.exports = FileHeader =
       # fill placeholder {{license}}
       headerTemplate = headerTemplate.replace(/\{\{license\}\}/g, license)
 
-    copyright = atom.config.get 'file-header.copyright', scope: (do editor.getRootScopeDescriptor)
     filename = if (atom.config.get 'file-header.enableFilename', scope: (do editor.getRootScopeDescriptor)) then @getFilePathName(editor)
-
     if filename
       # fill placeholder {{filename}}
       headerTemplate = headerTemplate.replace(/\{\{filename\}\}/g, filename)
 
+    copyright = atom.config.get 'file-header.copyright', scope: (do editor.getRootScopeDescriptor)
     if copyright
       # fill placeholder {{copyright}}
       headerTemplate = headerTemplate.replace(/\{\{copyright\}\}/g, copyright)
