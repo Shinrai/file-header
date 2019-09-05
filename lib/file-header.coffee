@@ -3,8 +3,8 @@
 # @Email:  root@guiguan.net
 # @Project: file-header
 # @Filename: lib/file-header.coffee
-# @Last modified by:   Nate Hyson <CLDMV> (nate@cldmv.net)
-# @Last modified time: 2019-09-05T10:02:33-07:00
+# @Last modified by:   Nate Hyson <CLDMV> (nate+git-public@cldmv.net)
+# @Last modified time: 2019-09-05T13:52:40-07:00
 
 
 
@@ -246,6 +246,7 @@ module.exports = FileHeader =
 
   getProjectName: (editor) ->
     return null unless editor.buffer.file
+    # repository = atom.project.getRepositoryForDirectory('/path/to/project');
     projectNameSetting = atom.config.get 'file-header.projectName', scope: (do editor.getRootScopeDescriptor)
     project = @getProject(editor)
     return projectNameSetting unless project
@@ -275,6 +276,25 @@ module.exports = FileHeader =
       author: author
       byName: byName
     configData
+
+  getCopyright: (editor) ->
+    return null unless editor
+    copyright = atom.config.get 'file-header.copyright', scope: (do editor.getRootScopeDescriptor)
+    return null unless copyright
+    # re = new RegExp("%([a-zA-Z]+)(?:\b|\r\n|\r|\n|\s)", 'g')
+    # The above SHOULD work. But for some reason it doesn't. So lets go old school here.
+    re = /%([a-zA-Z]+)(?:\b|\r\n|\r|\n|\s)/g;
+
+    while m = re.exec(copyright)
+      # This is necessary to avoid infinite loops with zero-width matches
+      if m.index == re.lastIndex
+        re.lastIndex++
+      anchor = m[0]
+      format = m[1]
+      parsed = moment().format(format);
+      if moment(parsed, format, true).isValid()
+        copyright = copyright.replace(anchor, parsed)
+    copyright
 
   getNewHeader: (editor, headerTemplate) ->
     return null unless headerTemplate
@@ -319,7 +339,7 @@ module.exports = FileHeader =
       # fill placeholder {{filename}}
       headerTemplate = headerTemplate.replace(/\{\{filename\}\}/g, filename)
 
-    copyright = atom.config.get 'file-header.copyright', scope: (do editor.getRootScopeDescriptor)
+    copyright = @getCopyright(editor)
     if copyright
       # fill placeholder {{copyright}}
       headerTemplate = headerTemplate.replace(/\{\{copyright\}\}/g, copyright)
