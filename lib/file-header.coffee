@@ -3,8 +3,8 @@
 # @Email:  root@guiguan.net
 # @Project: file-header
 # @Filename: lib/file-header.coffee
-# @Last modified by:   Nate Hyson (nate@cldmv.net)
-# @Last modified time: 2019-09-04T18:32:15-07:00
+# @Last modified by:   Nate Hyson <CLDMV> (nate@cldmv.net)
+# @Last modified time: 2019-09-04T18:38:27-07:00
 
 
 
