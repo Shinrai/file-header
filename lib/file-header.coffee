@@ -1,8 +1,10 @@
 # @Author: Guan Gui <guiguan>
 # @Date:   2016-02-13T14:15:43+11:00
 # @Email:  root@guiguan.net
-# @Last modified by:   guiguan
-# @Last modified time: 2018-02-14T11:28:22+11:00
+# @Project: file-header
+# @Filename: lib/file-header.coffee
+# @Last modified by:   Nate Hyson (nate@cldmv.net)
+# @Last modified time: 2019-09-04T18:32:15-07:00
 
 
 
@@ -31,69 +33,81 @@ module.exports = FileHeader =
       description: 'Your email address. Leave empty to disable.'
       type: 'string'
       default: ''
-    projectName:
-      title: 'Project Name'
+    enableProjectName:
+      title: 'Enable Project Name'
       order: 4
+      description: 'Whether to display Project Name in file header'
+      type: 'boolean'
+      default: true
+    projectName:
+      title: 'Project Name Default'
+      order: 5
       description: 'Current project name. Leave empty to disable.'
       type: 'string'
       default: ''
+    projectNameAuto:
+      title: 'Auto Detect Project Name'
+      order: 6
+      description: 'Attempt to determine project name and display in file header'
+      type: 'boolean'
+      default: true
     enableFilename:
       title: 'Enable Filename'
-      order: 5
+      order: 7
       description: 'Whether to display filename in file header'
       type: 'boolean'
       default: false
     license:
       title: 'License'
-      order: 6
+      order: 8
       description: 'Your custom license text. Leave empty to disable.'
       type: 'string'
       default: ''
     copyright:
       title: 'Copyright'
-      order: 7
+      order: 9
       description: 'Your custom copyright text. Leave empty to disable.'
       type: 'string'
       default: ''
     configDirPath:
       title: 'Config Directory Path'
-      order: 8
+      order: 10
       description: 'Path to the directory that contains your customized File Header <code>lang-mapping.json</code> and <code>templates</code> directory. They will override default ones came with this package.'
       type: 'string'
       default: path.join(atom.config.configDirPath || path.dirname(atom.config.getUserConfigPath()), 'file-header')
     dateTimeFormat:
       title: 'Date Time Format'
-      order: 9
+      order: 11
       description: 'Custom Moment.js format string to be used for date times in file header. For example, <code>DD-MMM-YYYY</code>. Please refer to <a href="http://momentjs.com/docs/#/displaying/format/" target="_blank">Moment.js doc</a> for details.'
       type: 'string'
       default: ''
     useFileCreationTime:
       title: 'Use File Creation Time'
-      order: 10
+      order: 12
       description: 'Use file creation time instead of file header creation time for <code>{{create_time}}</code>.'
       type: 'boolean'
       default: true
     autoUpdateEnabled:
       title: 'Enable Auto Update'
-      order: 11
+      order: 13
       description: 'Auto update file header on saving. Otherwise, you can bind your own key to <code>file-header:update</code> for manually triggering update. This is a master switch for following related options.'
       type: 'boolean'
       default: true
     autoAddingHeaderOnNewFile:
       title: 'Enable Auto Adding Header on New File'
-      order: 12
+      order: 14
       description: 'Auto adding header for new files on creation. Files are considered new if they are empty.'
       type: 'boolean'
       default: true
     autoAddingHeaderOnSaving:
       title: 'Enable Auto Adding Header on Saving'
-      order: 13
+      order: 15
       description: 'Auto adding header for new files on saving. Files are considered new if they do not contain any field (e.g. <code>@(Demo) Author:</code>) defined in corresponding template file.'
       type: 'boolean'
       default: true
     ignoreListForAutoUpdateAndAddingHeader:
       title: 'Ignore List for Auto Update and Adding Header'
-      order: 14
+      order: 16
       description: 'List of language scopes to be ignored during auto update and auto adding header. For example, <code>source.gfm, source.css</code> will ignore GitHub Markdown and CSS files.'
       type: 'array'
       default: ['text.plain.null-grammar', 'text.html.basic', 'source.gfm']
@@ -101,13 +115,13 @@ module.exports = FileHeader =
         type: 'string'
     ignoreCaseInTemplateField:
       title: 'Ignore Case in Template Field'
-      order: 15
+      order: 17
       description: 'When ignored, the template field <code>@(Demo) Last modified by:</code> is considered equivalent to <code>@(Demo) Last Modified by:</code>.'
       type: 'boolean'
       default: true
     numOfEmptyLinesAfterNewHeader:
       title: 'Number of Empty Lines after New Header'
-      order: 16
+      order: 18
       description: 'Number of empty lines should be kept after a new header.'
       type: 'integer'
       default: 3
@@ -196,23 +210,77 @@ module.exports = FileHeader =
       template = fs.readFileSync(path.join(__dirname, @TEMPLATES, templateFileName), encoding: "utf8")
     template
 
-  getNewHeader: (editor, headerTemplate) ->
-    return null unless headerTemplate
+  getProject: (editor) ->
+    return null unless editor.buffer.file
+    projectName = document.querySelector('.atom-dock-content-wrapper.left .tool-panel.tree-view .project-root-header span')
+    return null unless projectName
+    projectPath = projectName.getAttribute('data-path')
+    return null unless projectPath
+    project =
+      name: projectName.getAttribute('data-name')
+      path: projectPath
+    project
+
+  getFilePathName: (editor) ->
+    return null unless editor.buffer.file
+    project = @getProject(editor)
+    return editor.buffer.file.getBaseName() unless project
+    filePath = editor.buffer.file.path
+    filePathTest = filePath.substring(0, project.path.length)
+    return editor.buffer.file.getBaseName() unless (project.path == filePathTest)
+    filePath = filePath.substring(project.path.length + 1)
+    filePath = filePath.replace(/\\/g, '/')
+    filePath
+
+  isPartofCurrentProject: (editor) ->
+    return null unless editor.buffer.file
+    project = @getProject(editor)
+    return null unless project
+    filePath = editor.buffer.file.path
+    filePathTest = filePath.substring(0, project.path.length)
+    return null unless (project.path == filePathTest)
+    return true
+
+  getProjectName: (editor) ->
+    return null unless editor.buffer.file
+    projectNameSetting = atom.config.get 'file-header.projectName', scope: (do editor.getRootScopeDescriptor)
+    project = @getProject(editor)
+    return projectNameSetting unless project
+    projectNameAutoSetting = atom.config.get 'file-header.projectNameAuto', scope: (do editor.getRootScopeDescriptor)
+    return projectNameSetting unless project
+    return projectNameSetting unless @isPartofCurrentProject(editor)
+    project.name
+
+  getConfigData: (editor) ->
+    return null unless editor
     realname = atom.config.get 'file-header.realname', scope: (do editor.getRootScopeDescriptor)
     username = atom.config.get 'file-header.username', scope: (do editor.getRootScopeDescriptor)
     email = atom.config.get 'file-header.email', scope: (do editor.getRootScopeDescriptor)
-
     if realname
       author = realname
       if username
         author += " <#{ username }>"
     else
       author = username
-    byName = if username then username else realname
+    byName = author
+    if email
+      byName += " (#{ email })"
+    configData =
+      realname: realname
+      username: username
+      email: email
+      author: author
+      byName: byName
+    configData
 
-    if author
+  getNewHeader: (editor, headerTemplate) ->
+    return null unless headerTemplate
+    return null unless editor
+    configData = @getConfigData(editor)
+
+    if configData.author
       # fill placeholder {{author}}
-      headerTemplate = headerTemplate.replace(/\{\{author\}\}/g, author)
+      headerTemplate = headerTemplate.replace(/\{\{author\}\}/g, configData.author)
     dateTimeFormat = atom.config.get('file-header.dateTimeFormat', scope: (do editor.getRootScopeDescriptor))
     currTimeStr = moment().format(dateTimeFormat)
     creationTime = currTimeStr
@@ -226,24 +294,25 @@ module.exports = FileHeader =
     # fill placeholder {{last_modified_time}}
     headerTemplate = headerTemplate.replace(new RegExp("#{ @escapeRegExp(@LAST_MODIFIED_TIME) }", 'g'), currTimeStr)
 
-    if email
+    if configData.email
       # fill placeholder {{email}}
-      headerTemplate = headerTemplate.replace(/\{\{email\}\}/g, email)
-    if byName
+      headerTemplate = headerTemplate.replace(/\{\{email\}\}/g, configData.email)
+    if configData.byName
       # fill placeholder {{last_modified_by}}
-      headerTemplate = headerTemplate.replace(new RegExp(@escapeRegExp(@LAST_MODIFIED_BY), 'g'), byName)
+      headerTemplate = headerTemplate.replace(new RegExp(@escapeRegExp(@LAST_MODIFIED_BY), 'g'), configData.byName)
 
-    projectName = atom.config.get 'file-header.projectName', scope: (do editor.getRootScopeDescriptor)
+    projectName = if (atom.config.get 'file-header.enableProjectName', scope: (do editor.getRootScopeDescriptor)) then @getProjectName(editor)
     if projectName
       # fill placeholder {{project_name}}
       headerTemplate = headerTemplate.replace(/\{\{project_name\}\}/g, projectName)
+
     license = atom.config.get 'file-header.license', scope: (do editor.getRootScopeDescriptor)
     if license
       # fill placeholder {{license}}
       headerTemplate = headerTemplate.replace(/\{\{license\}\}/g, license)
 
     copyright = atom.config.get 'file-header.copyright', scope: (do editor.getRootScopeDescriptor)
-    filename = if (atom.config.get 'file-header.enableFilename', scope: (do editor.getRootScopeDescriptor)) then (if editor.buffer.file then editor.buffer.file.getBaseName()) else null
+    filename = if (atom.config.get 'file-header.enableFilename', scope: (do editor.getRootScopeDescriptor)) then @getFilePathName(editor)
 
     if filename
       # fill placeholder {{filename}}
@@ -308,13 +377,11 @@ module.exports = FileHeader =
 
     if @hasHeader(editor, buffer, headerTemplate)
       # update {{last_modified_by}}
-      realname = atom.config.get 'file-header.realname', scope: (do editor.getRootScopeDescriptor)
-      username = atom.config.get 'file-header.username', scope: (do editor.getRootScopeDescriptor)
-      byName = if username then username else realname
-      @updateField editor, @LAST_MODIFIED_BY, headerTemplate, buffer, byName
+  	  configData = @getConfigData(editor)
+  	  @updateField editor, @LAST_MODIFIED_BY, headerTemplate, buffer, configData.byName
 
       # update {{last_modified_time}}
-      @updateField editor, @LAST_MODIFIED_TIME, headerTemplate, buffer, moment().format(atom.config.get('file-header.dateTimeFormat', scope: (do editor.getRootScopeDescriptor)))
+  	  @updateField editor, @LAST_MODIFIED_TIME, headerTemplate, buffer, moment().format(atom.config.get('file-header.dateTimeFormat', scope: (do editor.getRootScopeDescriptor)))
     else if atom.config.get('file-header.autoAddingHeaderOnSaving', scope: (do editor.getRootScopeDescriptor))
       @addHeader(editor, buffer, headerTemplate)
 
